@@ -1,6 +1,8 @@
 package lib
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
 // Free page list keeps track of all the pages allocated for the database to avoid allocating unnecessary memory
 type freePageList struct {

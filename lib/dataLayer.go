@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"errors"
 	"fmt"
 	"os"
 )
@@ -19,23 +20,16 @@ type Dal struct {
 	*meta
 }
 
-func NewDal(path string, pageSize int) (*Dal, error) {
-	// file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// dal := &Dal{file, pageSize, newFreePageList(), newEmptyMeta()}
-	// return dal, nil
-
+func NewDal(path string) (*Dal, error) {
 	dal := &Dal{
-		meta: newEmptyMeta(),
+		meta:     newEmptyMeta(),
+		pageSize: os.Getpagesize(),
 	}
 
 	if _, err := os.Stat(path); err == nil {
 		dal.file, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
 		if err != nil {
-			_ = dal.close()
+			_ = dal.Close()
 			return nil, err
 		}
 
@@ -45,15 +39,33 @@ func NewDal(path string, pageSize int) (*Dal, error) {
 		}
 		dal.meta = meta
 
-		freeList, err := dal.readFreeList()
+		freePageList, err := dal.readFreeList()
 		if err != nil {
 			return nil, err
 		}
-		dal.freeList = freeList
+		dal.freePageList = freePageList
+	} else if errors.Is(err, os.ErrNotExist) {
+		dal.file, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
+		if err != nil {
+			_ = dal.Close()
+			return nil, err
+		}
+
+		dal.freePageList = newFreePageList()
+		dal.freePageListNum = dal.GetNextPage()
+		_, err := dal.WriteFreeList()
+		if err != nil {
+			return nil, err
+		}
+		_, err = dal.writeMeta(dal.meta)
+	} else {
+		return nil, err
 	}
+
+	return dal, nil
 }
 
-func (d *Dal) close() error {
+func (d *Dal) Close() error {
 	if d.file != nil {
 		err := d.file.Close()
 		if err != nil {
@@ -109,16 +121,27 @@ func (d *Dal) readMeta() (*meta, error) {
 	return meta, nil
 }
 
-func (d *Dal) writeFreeList() (*page, error) {
-	p := d.AllocatePage()
-	p.num := d.freeListPage
-	d.freeList.serialize(p.data)
-
-	err := d.writePage(p)
+func (d *Dal) readFreeList() (*freePageList, error) {
+	p, err := d.ReadPage(d.freePageListNum)
 	if err != nil {
 		return nil, err
 	}
 
-	d.freeListPage := p.num
+	freeList := newFreePageList()
+	freeList.deserialize(p.Data)
+	return freeList, nil
+}
+
+func (d *Dal) WriteFreeList() (*page, error) {
+	p := d.AllocatePage()
+	p.Num = d.freePageListNum
+	d.freePageList.serialize(p.Data)
+
+	err := d.WritePage(p)
+	if err != nil {
+		return nil, err
+	}
+
+	d.freePageListNum = p.Num
 	return p, nil
 }
