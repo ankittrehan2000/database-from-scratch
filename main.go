@@ -12,7 +12,6 @@ func main() {
 	copy(p.Data[:], "data")
 	_ = dal.WritePage(p)
 
-	_ = dal.WritePage(p)
 	_, _ = dal.WriteFreeList()
 
 	_ = dal.Close()
