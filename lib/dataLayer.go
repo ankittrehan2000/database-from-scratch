@@ -146,7 +146,7 @@ func (d *Dal) WriteFreeList() (*page, error) {
 	return p, nil
 }
 
-func (d *Dal) getNode(pageNum pgnum) (*Node, error) {
+func (d *Dal) GetNode(pageNum pgnum) (*Node, error) {
 	p, err := d.ReadPage(pageNum)
 	if err != nil {
 		return nil, err

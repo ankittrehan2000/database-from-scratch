@@ -2,32 +2,24 @@ package main
 
 import (
 	"database-from-scratch/lib"
+	"fmt"
 )
 
 func main() {
-	dal, _ := lib.NewDal("db.db")
+	dal, err := lib.NewDal("mainTest")
 
-	p := dal.AllocatePage()
-	p.Num = dal.GetNextPage()
-	copy(p.Data[:], "data")
-	_ = dal.WritePage(p)
+	if err != nil {
+		fmt.Println(err)
+	}
+	node, _ := dal.GetNode(dal.Root)
 
-	_, _ = dal.WriteFreeList()
+	node.Dal = dal
+	index, containingNode, err := node.FindKey([]byte("Key1"))
 
+	if err != nil {
+		fmt.Println(err)
+	}
+	res := containingNode.Items[index]
+	fmt.Printf("key is %s, value is %s", res.Key, res.Value)
 	_ = dal.Close()
-
-	// We expect the freelist state was saved, so we write to
-	// page number 3 and not overwrite the one at number 2
-	dal, _ = lib.NewDal("db.db")
-	p = dal.AllocatePage()
-	p.Num = dal.GetNextPage()
-	copy(p.Data[:], "data2")
-	_ = dal.WritePage(p)
-
-	// Create a page and free it so the released pages will be updated
-	pageNum := dal.GetNextPage()
-	dal.ReleasePage(pageNum)
-
-	// commit it
-	_, _ = dal.WriteFreeList()
 }
